@@ -29,10 +29,15 @@ class DataSorter
     end
   end
 
-  def initialize(csv_path, options = {})
-    @csv_path = csv_path
+  def initialize(csv_data, options = {})
+    @csv_data = csv_data
     @options = options
     @date_range = options[:date_range]
+  end
+
+  def self.load_file(csv_path, options = {})
+    data = File.read(csv_path)
+    DataSorter.new(data, options)
   end
 
   def empty_projects
@@ -49,7 +54,7 @@ class DataSorter
     projects = empty_projects
 
     #Read in the CSV row by row 
-    CSV.table(@csv_path).each do |row|
+    CSV.parse(@csv_data, headers: true, converters: :numeric, header_converters: :symbol).each do |row|
       
       #ignore blank rows
       next if row.to_hash.values.none?

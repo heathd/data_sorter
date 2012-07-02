@@ -5,7 +5,7 @@ require_relative '../lib/data_sorter'
 class DataSorterTest < MiniTest::Unit::TestCase
 
 	def test_projects_with_tasks_from_csv_groups_tasks_by_product
-    sorter = DataSorter.new(File.dirname(__FILE__) + "/fixtures/sample.csv")
+    sorter = DataSorter.load_file(File.dirname(__FILE__) + "/fixtures/sample.csv")
 
     projects_with_tasks = sorter.projects_with_tasks_from_csv
     product_a = projects_with_tasks.select { |p| p.id == "A" }.first
@@ -18,7 +18,7 @@ class DataSorterTest < MiniTest::Unit::TestCase
   end
 
   def test_data_structure_returns_a_hash_with_primitive_data_types
-    sorter = DataSorter.new(File.dirname(__FILE__) + "/fixtures/sample.csv")
+    sorter = DataSorter.load_file(File.dirname(__FILE__) + "/fixtures/sample.csv")
     actual = sorter.data_structure
     product_a = actual['children'].select { |product| product["id"] == "A" }.first
     task = product_a["children"].first
@@ -28,12 +28,12 @@ class DataSorterTest < MiniTest::Unit::TestCase
 
   def test_can_produce_data_structure_filtered_by_date_range
     date_range_including_task = Date.parse("10/3/2011")..Date.parse("10/3/2011")
-    data = DataSorter.new(File.dirname(__FILE__) + "/fixtures/sample2.csv", date_range: date_range_including_task ).data_structure
+    data = DataSorter.load_file(File.dirname(__FILE__) + "/fixtures/sample2.csv", date_range: date_range_including_task ).data_structure
     product_a = data['children'].select { |product| product["id"] == "A" }.first
     assert_equal 1, product_a["children"].size
 
     date_range_excluding_task = Date.parse("9/3/2011")..Date.parse("9/3/2011")
-    data = DataSorter.new(File.dirname(__FILE__) + "/fixtures/sample2.csv", date_range: date_range_excluding_task ).data_structure
+    data = DataSorter.load_file(File.dirname(__FILE__) + "/fixtures/sample2.csv", date_range: date_range_excluding_task ).data_structure
     product_a = data['children'].select { |product| product["id"] == "A" }.first
     assert_equal 0, product_a["children"].size
   end
