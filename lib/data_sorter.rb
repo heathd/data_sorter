@@ -4,7 +4,29 @@ require 'date'
 
 class DataSorter
 
-  class Task < Struct.new(:id, :start_date, :end_date)
+  class Task
+    attr_reader :row
+
+    def initialize(row)
+      @row = row
+    end
+
+    def id
+      field(:feature_id)
+    end
+
+    def start_date
+      field(:development_started)
+    end
+
+    def end_date
+      field(:in_production)
+    end
+
+    def field(name)
+      @row[name]
+    end
+
     def time_spent_in_days
       if !end_date.nil? && !start_date.nil?
         (Date.parse(end_date) - Date.parse(start_date)).to_i
@@ -19,6 +41,23 @@ class DataSorter
       return true if date_range.nil?
       date_range.cover?(Date.parse(start_date)) || date_range.cover?(Date.parse(end_date)) || 
         (Date.parse(start_date)..Date.parse(end_date)).cover?(date_range.first)
+    end
+
+    def time_delay(from_date, to_date)
+      return 0 if from_date.nil? || to_date.nil?
+      (Date.parse(to_date) - Date.parse(from_date)).to_i
+    end
+        
+    def time_to_start_development
+      time_delay(field(:analysis_completed), field(:development_started))
+    end
+
+    def time_to_uat
+      time_delay(field(:systest_ok), field(:in_uat))
+    end
+
+    def time_to_production
+      time_delay(field(:ready_for_release), field(:in_production))
     end
   end
 
@@ -63,7 +102,7 @@ class DataSorter
       project = projects.find { |p| p.name == row[:application_name] } or next
 
       #add the date we are interested in to our task object
-      task = Task.new(row[:feature_id], row[:development_started], row[:in_production])
+      task = Task.new(row)
 
       #add it to that project's tasks if it is valid and in our range
       project.tasks << task if task.valid? && task.in_range?(@date_range)
@@ -106,5 +145,50 @@ class DataSorter
       "data" => { "$type" => "none" },
       "children" => projects.map { |project| project_data_structure(project) }
     }
+  end
+
+  def all_months(first_month, last_month)
+    months = []
+    current_month = first_month
+    while current_month <= last_month
+      months << current_month
+      current_month = Date.parse(current_month + "-01").next_month.strftime("%Y-%m")
+    end
+    months
+  end
+
+  def delays_by_month
+    all_tasks = projects_with_tasks_from_csv.map do |project|
+      project.tasks
+    end.flatten
+
+    by_month = all_tasks.group_by do |task| 
+      next unless task.start_date
+      Date.parse(task.start_date).strftime("%Y-%m")
+    end
+
+    first_month, last_month = by_month.keys.minmax
+
+    results = {:first_month => first_month, :last_month => last_month}
+
+    results[:time_to_start_development] = all_months(first_month, last_month).map do |month|
+      by_month[month] && by_month[month].inject(0) do |sum, task|
+        sum + task.time_to_start_development
+      end
+    end
+
+    results[:time_to_uat] = all_months(first_month, last_month).map do |month|
+      by_month[month] && by_month[month].inject(0) do |sum, task|
+        sum + task.time_to_uat
+      end
+    end
+
+    results[:time_to_production] = all_months(first_month, last_month).map do |month|
+      by_month[month] && by_month[month].inject(0) do |sum, task|
+        sum + task.time_to_production
+      end
+    end
+
+    results
   end
 end
